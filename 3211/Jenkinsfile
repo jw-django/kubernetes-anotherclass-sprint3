@@ -50,37 +50,38 @@ pipeline {
             steps {
                 // jar 파일 복사
                 sh "cp ./build/libs/app-${APP_VERSION}-SNAPSHOT.jar ./${CLASS_NUM}/build/docker/app-${APP_VERSION}-SNAPSHOT.jar"
-
-                // 도커 빌드
-                sh "docker build -t ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION} ./${CLASS_NUM}/build/docker"
+		
+		    	withCredentials([usernamePassword(credentialsId: 'docker_password', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+	                    sh "echo " + '${PASSWORD}' + " | docker login -u " + '${USERNAME}' + " --password-stdin"
+	                }
+				// 도커 빌드
+				sh "docker build -t ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION} ./${CLASS_NUM}/build/docker"
+				// docker hub push
+		    	sh "docker push ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION}"
             }
-        }
-
-        stage('컨테이너 업로드') {
-            steps {
-                // DockerHub로 이미지 업로드
-                script{
-                    if (DOCKERHUB_USERNAME == "1pro") {
-                        echo "docker push ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION}"
-                    } else {
-                        sh "docker push ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION}"
-                    }
+		
+	    post {
+                always {
+                    sh "docker logout"
                 }
             }
         }
 
         stage('쿠버네티스 배포') {
             steps {
-                // K8S 배포
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/namespace.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/configmap.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/secret.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/service.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/serviceaccount.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/secret-token.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/role.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/rolebinding.yaml"
-                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/deployment.yaml"
+				withCredentials([file(credentialsId: 'k8s_master_config', variable: 'KUBECONFIG')]) {
+					// K8S 배포
+                    
+					sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/namespace.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/configmap.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/secret.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/service.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/serviceaccount.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/secret-token.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/role.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/rolebinding.yaml --kubeconfig " + '${KUBECONFIG}'
+	                sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/deployment.yaml --kubeconfig " + '${KUBECONFIG}'
+                }
             }
         }
     }
