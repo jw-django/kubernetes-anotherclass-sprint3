@@ -22,21 +22,13 @@ pipeline {
     }
     
     stages {
-        stage('소스파일 체크아웃') {
-            steps {
-                // 본인의 username으로 하실 분은 수정해주세요.
-                git branch: "${APP_VERSION}", url: "${APP_GITHUB_URL}"
-            }
-        }
+        // stage('소스파일 체크아웃') {
+        //     steps {
+        //         // 본인의 username으로 하실 분은 수정해주세요.
+        //         git branch: "${APP_VERSION}", url: "${APP_GITHUB_URL}"
+        //     }
+        // }
 	    
-        stage('네임스페이스 생성') { // 배포시 apply로 Namespace 생성 or 배포와 별개로 미리 생성 (추후 삭제시 별도 삭제)
-            steps {
-                // kubectl 명령 사용 - [1] 중요 데이터 암호화 관리
-                withCredentials([file(credentialsId: 'k8s_master_config', variable: 'KUBECONFIG')]) {
-                    sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/namespace.yaml --kubeconfig " + '${KUBECONFIG}'
-                }
-            }
-        }
    //      stage('소스 빌드') {
    //          steps {
    //              // 755권한 필요 (윈도우에서 Git으로 소스 업로드시 권한은 644)
@@ -45,15 +37,24 @@ pipeline {
    //          }
    //      }
 
-   //      stage('릴리즈파일 체크아웃') {
-   //          steps {
-   //              checkout scmGit(branches: [[name: '*/main']],
-   //                  extensions: [[$class: 'SparseCheckoutPaths',
-   //                  sparseCheckoutPaths: [[path: "/${CLASS_NUM}"]]]],
-			// 		userRemoteConfigs: [[url: "${RELEASE_GITHUB_URL}"]])
-   //          }
-   //      }
+        stage('릴리즈파일 체크아웃') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']],
+                    extensions: [[$class: 'SparseCheckoutPaths',
+                    sparseCheckoutPaths: [[path: "/${CLASS_NUM}"]]]],
+					userRemoteConfigs: [[url: "${RELEASE_GITHUB_URL}"]])
+            }
+        }
 
+    	stage('네임스페이스 생성') { // 배포시 apply로 Namespace 생성 or 배포와 별개로 미리 생성 (추후 삭제시 별도 삭제)
+            steps {
+                // kubectl 명령 사용 - [1] 중요 데이터 암호화 관리
+                withCredentials([file(credentialsId: 'k8s_master_config', variable: 'KUBECONFIG')]) {
+                    sh "kubectl apply -f ./${CLASS_NUM}/deploy/k8s/namespace.yaml --kubeconfig " + '${KUBECONFIG}'
+                }
+            }
+        }
+	    
    //      stage('컨테이너 빌드') {
    //          steps {
    //              // jar 파일 복사
